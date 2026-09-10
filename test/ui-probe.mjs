@@ -145,6 +145,13 @@ const tabs = await send('Runtime.evaluate', {
   returnByValue: true,
 })
 
+const pageText = await send('Runtime.evaluate', {
+  expression: 'document.body.innerText.slice(0, 1200)',
+  returnByValue: true,
+})
+console.log('--- 页面文本 ---')
+console.log(pageText.result.value)
+
 const shot = await send('Page.captureScreenshot', { format: 'png' })
 fs.writeFileSync(outPath, Buffer.from(shot.data, 'base64'))
 

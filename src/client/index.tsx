@@ -111,27 +111,42 @@ function Centered(props: { children?: React.ReactNode }) {
 }
 
 /**
- * 铺满整个会话正文区。
+ * 切到「前端预览」时，把底部的输入框**藏起来**，让预览占满整个会话区。
  *
- * 为什么用绝对定位而不是 height:100%：
- * 会话正文（.body）是 824px，但插槽给视图的容器（.viewArea）只有 696px——
- * 差的 128px 被底部的输入框占着。height:100% 只能填满 696，预览就被截掉一块。
- * 往上找一个**已定位的祖先**（DSH 的 .body 是 position:relative），
- * 用 inset:0 铺满它，就等于把输入框那一块也让给预览。
+ * 不这么做的话：会话正文是 824px，而插槽给视图的容器只有 696px——
+ * 差的 128px 被输入框占着，预览被截掉一块。
  *
- * 代价：切到「前端预览」时看不到输入框（它被盖住了）。这是有意的——
- * 看效果的时候不该被输入框挤掉三分之一屏幕；要打字切回「对话」即可。
+ * 用隐藏而不是「绝对定位盖上去」，是因为隐藏让布局自然长满：
+ * 输入框一从文档流里消失，视图容器自己就会撑到 824px，
+ * 不用跟 DSH 的层级较劲，也不会盖错东西。
+ *
+ * 钩子是 DSH 自己暴露的 `data-composer-seat`（不是哈希类名，跨版本稳）。
+ * 卸载时原样恢复。
  */
+function useHideComposer(): void {
+  useEffect(() => {
+    const seats = Array.from(document.querySelectorAll<HTMLElement>('[data-composer-seat]'))
+    const saved = seats.map((element) => ({ element, display: element.style.display }))
+
+    for (const { element } of saved) element.style.display = 'none'
+
+    return () => {
+      for (const { element, display } of saved) element.style.display = display
+    }
+  }, [])
+}
+
+/** 视图在文档流里撑满可用高度 */
 const FILL_STYLE: React.CSSProperties = {
-  position: 'absolute',
-  inset: 0,
   display: 'flex',
   flexDirection: 'column',
+  height: '100%',
   minHeight: 0,
-  background: 'inherit',
 }
 
 function ProjectPreviewView(props: { sessionId?: string }) {
+  useHideComposer()
+
   const sessionId = props?.sessionId ?? ''
 
   const [state, setState] = useState<PreviewState | null>(null)
