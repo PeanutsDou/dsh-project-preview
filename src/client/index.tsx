@@ -98,11 +98,9 @@ function Centered(props: { children?: React.ReactNode }) {
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
+        ...FILL_STYLE,
         alignItems: 'center',
         justifyContent: 'center',
-        height: '100%',
         padding: '24px',
         textAlign: 'center',
       }}
@@ -110,6 +108,27 @@ function Centered(props: { children?: React.ReactNode }) {
       {props.children}
     </div>
   )
+}
+
+/**
+ * 铺满整个会话正文区。
+ *
+ * 为什么用绝对定位而不是 height:100%：
+ * 会话正文（.body）是 824px，但插槽给视图的容器（.viewArea）只有 696px——
+ * 差的 128px 被底部的输入框占着。height:100% 只能填满 696，预览就被截掉一块。
+ * 往上找一个**已定位的祖先**（DSH 的 .body 是 position:relative），
+ * 用 inset:0 铺满它，就等于把输入框那一块也让给预览。
+ *
+ * 代价：切到「前端预览」时看不到输入框（它被盖住了）。这是有意的——
+ * 看效果的时候不该被输入框挤掉三分之一屏幕；要打字切回「对话」即可。
+ */
+const FILL_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0,
+  background: 'inherit',
 }
 
 function ProjectPreviewView(props: { sessionId?: string }) {
@@ -190,7 +209,7 @@ function ProjectPreviewView(props: { sessionId?: string }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <div style={FILL_STYLE}>
       <Toolbar
         title={state?.title ?? ''}
         url={url}

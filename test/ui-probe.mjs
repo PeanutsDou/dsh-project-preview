@@ -109,19 +109,30 @@ await sleep(6000)
 
 // 可选：先点一个按钮（比如「新会话」）—— conversation.view 的页签只在会话里出现
 if (clickText) {
-  const clicked = await send('Runtime.evaluate', {
-    expression: `(function () {
-      const needle = ${JSON.stringify(clickText)};
-      const all = Array.from(document.querySelectorAll('button, a, [role="button"]'));
-      const hit = all.find((e) => (e.innerText || '').trim() === needle);
-      if (!hit) return 'not-found';
-      hit.click();
-      return 'clicked';
-    })()`,
-    returnByValue: true,
-  })
-  console.log('点击「' + clickText + '」: ' + clicked.result.value)
-  await sleep(5000)
+  // 支持用 | 分隔的点击序列
+  for (const step of clickText.split('|')) {
+    const clicked = await send('Runtime.evaluate', {
+      expression: `(function () {
+        const needle = ${JSON.stringify(step.trim())};
+        const all = Array.from(document.querySelectorAll('button, a, [role="button"], li, [class*="item"], [class*="row"], div, span'));
+        // 优先精确匹配，其次匹配「短文本里包含」的最深元素
+        let hit = all.find((e) => (e.innerText || '').trim() === needle);
+        if (!hit) {
+          const loose = all.filter((e) => {
+            const t = (e.innerText || '').trim();
+            return t.includes(needle) && t.length < 40;
+          });
+          hit = loose[loose.length - 1];
+        }
+        if (!hit) return 'not-found';
+        hit.click();
+        return 'clicked';
+      })()`,
+      returnByValue: true,
+    })
+    console.log('点击「' + step.trim() + '」: ' + clicked.result.value)
+    await sleep(4000)
+  }
 }
 
 const found = await send('Runtime.evaluate', {
@@ -138,12 +149,20 @@ const shot = await send('Page.captureScreenshot', { format: 'png' })
 fs.writeFileSync(outPath, Buffer.from(shot.data, 'base64'))
 
 // 客户端插件是合并成一个请求加载的，检查我的包名在不在清单里
-const bundleRequest = requests.find((u) => u.includes('/plugins/'))
-const inBundle = bundleRequest !== undefined && bundleRequest.includes('dsh-project-preview')
+const bundleRequests = requests.filter((u) => u.includes('/plugins/'))
+const inBundle = bundleRequests.some((u) => u.includes('dsh-project-preview'))
+
+// 清单里都有谁（只看第三方，便于对比）
+const names = bundleRequests
+  .flatMap((u) => decodeURIComponent(u).split('??')[1]?.split(',') ?? [])
+  .map((p) => p.replace('/client.js', ''))
+  .filter((p) => !p.startsWith('@deepseek-ai/'))
 
 console.log(JSON.stringify({
   找到目标文本: found.result.value === true,
   我的客户端bundle被加载: inBundle,
+  plugins请求数: bundleRequests.length,
+  清单里的第三方插件: names,
   控制台错误: consoleErrors.slice(0, 12),
   截图: outPath,
 }, null, 2))
