@@ -1,0 +1,6 @@
+# dsh-project-preview bundle patch
+# host 半在这里挂载；client 半由 package.json 的 dsh.client 清单被发现。
+- insert:
+    - id: dsh-project-preview
+      name: '@peanutsdou/dsh-project-preview'
+      config: {}
